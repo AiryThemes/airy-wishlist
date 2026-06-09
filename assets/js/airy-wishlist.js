@@ -876,8 +876,7 @@
             })
             .then(response => response.json())
             .then(callback)
-            .catch(error => {
-                console.error('Wishlist AJAX Error:', error);
+            .catch(() => {
                 this.showMessage(this.i18n.genericError || 'An error occurred. Please try again.', 'error');
             });
         }
