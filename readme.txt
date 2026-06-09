@@ -1,5 +1,5 @@
 === Airy Wishlist for WooCommerce ===
-Contributors: airythemes
+Contributors: airythemes, nxlogy
 Tags: wishlist, woocommerce wishlist, woo wishlist, product wishlist, add to wishlist
 Requires at least: 6.0
 Tested up to: 7.0
