@@ -2,7 +2,6 @@
 # (the version uploaded to WordPress.org / installed on a site).
 # Build a clean zip with:  wp dist-archive .  ../airy-wishlist.zip
 
-.claude
 .git
 .github
 .distignore
