@@ -26,15 +26,17 @@ jobs:
 
       - name: Install PHP_CodeSniffer + WordPress Coding Standards
         run: |
+          composer global config --no-plugins allow-plugins.dealerdirect/phpcodesniffer-composer-installer true
           composer global require --no-interaction --no-progress \
             "squizlabs/php_codesniffer:^3.9" \
             "wp-coding-standards/wpcs:^3.1" \
             "phpcsstandards/phpcsextra:^1.2" \
             "phpcsstandards/phpcsutils:^1.0" \
             "dealerdirect/phpcodesniffer-composer-installer:^1.0"
+          echo "$(composer global config bin-dir --absolute)" >> "$GITHUB_PATH"
 
       - name: Run PHPCS (uses phpcs.xml.dist in repo root)
-        run: ~/.composer/vendor/bin/phpcs -q --report=full
+        run: phpcs -q --report=full
 
   plugin-check:
     name: WordPress Plugin Check
@@ -43,7 +45,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Build a clean plugin directory (excludes dev/build files, like the shipped ZIP)
+        run: |
+          mkdir -p build/airy-wishlist
+          rsync -a \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='build' \
+            --exclude='.distignore' \
+            --exclude='.gitignore' \
+            --exclude='.gitattributes' \
+            --exclude='phpcs.xml.dist' \
+            --exclude='README.md' \
+            --exclude='CONTRIBUTING.md' \
+            ./ build/airy-wishlist/
+
       - name: Run Plugin Check
         uses: wordpress/plugin-check-action@v1
         with:
-          build-dir: './'
+          build-dir: './build/airy-wishlist'
