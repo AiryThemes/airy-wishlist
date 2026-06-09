@@ -1,0 +1,153 @@
+# Copyright (C) 2025 NXlogy
+# This file is distributed under the same license as the Airy Woo Wishlist plugin.
+msgid ""
+msgstr ""
+"Project-Id-Version: Airy Woo Wishlist 1.0.1\n"
+"Report-Msgid-Bugs-To: https://nxlogy.com/support\n"
+"Last-Translator: NXlogy <support@nxlogy.com>\n"
+"Language-Team: NXlogy <support@nxlogy.com>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2025-01-01 00:00:00+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WordPress\n"
+"X-Domain: airy-wishlist\n"
+
+#: airy-wishlist.php:152
+msgid "Airy Woo Wishlist requires WooCommerce to be installed and active."
+msgstr ""
+
+#: includes/airy-wishlist-ajax.php:50
+msgid "Invalid product."
+msgstr ""
+
+#: includes/airy-wishlist-ajax.php:59
+msgid "Product added to wishlist!"
+msgstr ""
+
+#: includes/airy-wishlist-ajax.php:65
+msgid "Product is already in wishlist."
+msgstr ""
+
+#: includes/airy-wishlist-ajax.php:90
+msgid "Product removed from wishlist."
+msgstr ""
+
+#: includes/airy-wishlist-ajax.php:95
+msgid "Could not remove product."
+msgstr ""
+
+#: includes/airy-wishlist-ajax.php:127
+msgid "Could not add product to cart."
+msgstr ""
+
+#: includes/airy-wishlist-ajax.php:145
+msgid "Product added to cart."
+msgstr ""
+
+#: includes/airy-wishlist-database.php:63
+msgid "My Wishlist"
+msgstr ""
+
+#: includes/airy-wishlist-shortcodes.php:58
+#: includes/airy-wishlist-functions.php:58
+msgid "Add to Wishlist"
+msgstr ""
+
+#: includes/airy-wishlist-shortcodes.php:59
+msgid "Added to Wishlist"
+msgstr ""
+
+#: includes/airy-wishlist-shortcodes.php:62
+msgid "Your wishlist is empty."
+msgstr ""
+
+#: includes/airy-wishlist-shortcodes.php:67
+msgid "Continue Shopping"
+msgstr ""
+
+#: includes/airy-wishlist-shortcodes.php:96
+msgid "Product"
+msgstr ""
+
+#: includes/airy-wishlist-shortcodes.php:98
+msgid "Price"
+msgstr ""
+
+#: includes/airy-wishlist-shortcodes.php:100
+msgid "Stock"
+msgstr ""
+
+#: includes/airy-wishlist-shortcodes.php:103
+msgid "Date Added"
+msgstr ""
+
+#: includes/airy-wishlist-shortcodes.php:120
+msgid "Add All to Cart"
+msgstr ""
+
+#: includes/airy-wishlist-shortcodes.php:179
+msgid "In Stock"
+msgstr ""
+
+#: includes/airy-wishlist-shortcodes.php:181
+msgid "Out of Stock"
+msgstr ""
+
+#: includes/airy-wishlist-shortcodes.php:197
+#: includes/airy-wishlist-functions.php:59
+msgid "Add to Cart"
+msgstr ""
+
+#: includes/airy-wishlist-shortcodes.php:201
+msgid "View Product"
+msgstr ""
+
+#: includes/airy-wishlist-shortcodes.php:282
+msgid "Share:"
+msgstr ""
+
+#: includes/airy-wishlist-shortcodes.php:279
+msgid "Check out my wishlist!"
+msgstr ""
+
+#: includes/airy-wishlist-shortcodes.php:337
+msgid "Wishlist"
+msgstr ""
+
+#: admin/class-airy-wishlist-admin.php:33
+msgid "Wishlist Settings"
+msgstr ""
+
+#: admin/class-airy-wishlist-admin.php:34
+msgid "Wishlist"
+msgstr ""
+
+#: admin/class-airy-wishlist-admin.php:131
+msgid "Airy Wishlist Settings"
+msgstr ""
+
+#: admin/class-airy-wishlist-admin.php:135
+msgid "General"
+msgstr ""
+
+#: admin/class-airy-wishlist-admin.php:138
+msgid "Add to Wishlist"
+msgstr ""
+
+#: admin/class-airy-wishlist-admin.php:141
+msgid "Wishlist Page"
+msgstr ""
+
+#: admin/class-airy-wishlist-admin.php:144
+msgid "Customization"
+msgstr ""
+
+#: admin/class-airy-wishlist-admin.php:147
+msgid "Social Sharing"
+msgstr ""
+
+#: admin/class-airy-wishlist-admin.php:150
+msgid "Labels"
+msgstr ""

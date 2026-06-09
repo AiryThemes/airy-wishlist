@@ -1,0 +1,53 @@
+/* Airy WooCommerce Wishlist - Admin Styles */
+
+.airy-wishlist-settings {
+	max-width: 1200px;
+}
+
+.airy-wishlist-settings h1 {
+	margin-bottom: 20px;
+}
+
+.airy-wishlist-settings .nav-tab-wrapper {
+	margin-bottom: 30px;
+}
+
+.airy-wishlist-settings-content {
+	background: #ffffff;
+	padding: 20px;
+	border: 1px solid #ccd0d4;
+	box-shadow: 0 1px 1px rgba(0,0,0,0.04);
+}
+
+.airy-wishlist-settings .form-table th {
+	width: 250px;
+	padding: 20px 10px 20px 0;
+}
+
+.airy-wishlist-settings .form-table td {
+	padding: 15px 10px;
+}
+
+.airy-wishlist-settings .description {
+	margin-top: 5px;
+	color: #646970;
+	font-style: italic;
+}
+
+.airy-color-picker {
+	max-width: 100px;
+}
+
+.airy-wishlist-settings textarea.large-text {
+	width: 100%;
+	max-width: 600px;
+}
+
+.airy-wishlist-settings input[type="text"].regular-text {
+	width: 100%;
+	max-width: 400px;
+}
+
+.airy-wishlist-settings select {
+	min-width: 250px;
+}
