@@ -2,9 +2,9 @@
 Contributors: airythemes
 Tags: wishlist, woocommerce wishlist, woo wishlist, product wishlist, add to wishlist
 Requires at least: 6.0
-Tested up to: 6.8
+Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.1
+Stable tag: 2.0.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -166,6 +166,31 @@ Use the `[airy_wishlist_counter]` shortcode, the included widget, or the Gutenbe
 Yes! The plugin includes a Gutenberg block for easy integration with the WordPress block editor.
 
 == Changelog ==
+
+= 2.0.0 =
+Major feature release. Everything below is new since 1.0.1.
+
+New features:
+* Multiple named wishlists - customers can create lists such as "Birthday" or "Christmas", switch between them on the wishlist page, and rename or delete them.
+* Move a product from one wishlist to another, and choose which list to add a product to.
+* Shareable wishlists - share a public, read-only link via a unique token, with a "Copy Link" button plus Facebook, X, Pinterest, WhatsApp and Email sharing (shares the list you are viewing).
+* "Wishlist" tab in the WooCommerce My Account menu.
+* Stock and price email notifications - logged-in customers can opt in per list to be alerted when a saved product is back in stock, drops in price, is low in stock, or goes on sale. Built on WP-Cron and batched into a single digest email (no duplicate spam).
+* Wishlist Analytics dashboard - most-wishlisted products, totals, and add-to-cart conversion.
+* Wishlist Marketing - send a promotional email to all customers who have a specific product in their wishlist.
+* "Add to Wishlist" button now works as an add/remove toggle.
+
+Improvements and fixes:
+* Counter badge updates instantly after the first add (no page reload needed).
+* Correct added/not-added button state per selected variation on variable products.
+* All button labels and frontend messages are fully translatable.
+* "Add All to Cart" now reports accurate success and failure.
+* "Enable wishlist for guest users" setting is now properly enforced.
+* Removing a product and adding to cart now work correctly from non-default lists.
+* "Redirect to wishlist page" now opens the list the product was added to.
+* Automatic database upgrades when the plugin is updated.
+* Performance: removed wasteful polling and eliminated a duplicate database query on the wishlist page.
+* Pinterest sharing now renders; external share links use rel="noopener noreferrer".
 
 = 1.0.1 =
 * Initial release

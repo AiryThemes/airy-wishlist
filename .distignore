@@ -1,0 +1,21 @@
+# Files and directories that must NOT be included in the distributed plugin
+# (the version uploaded to WordPress.org / installed on a site).
+# Build a clean zip with:  wp dist-archive .  ../airy-wishlist.zip
+
+.claude
+.git
+.github
+.distignore
+phpcs.xml.dist
+phpcs.xml
+composer.json
+composer.lock
+package.json
+package-lock.json
+node_modules
+vendor
+*.zip
+*.log
+*.csv
+.DS_Store
+Thumbs.db

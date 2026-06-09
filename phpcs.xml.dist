@@ -1,0 +1,63 @@
+<?xml version="1.0"?>
+<ruleset name="Airy Wishlist">
+	<description>Coding standards for the Airy Wishlist plugin (WordPress / WPCS).</description>
+
+	<!-- Scan the plugin directory. -->
+	<file>.</file>
+
+	<!-- Only PHP files. -->
+	<arg name="extensions" value="php"/>
+	<!-- Show sniff codes and progress. -->
+	<arg value="ps"/>
+
+	<!-- Things to ignore. -->
+	<exclude-pattern>*/node_modules/*</exclude-pattern>
+	<exclude-pattern>*/vendor/*</exclude-pattern>
+	<exclude-pattern>*/.claude/*</exclude-pattern>
+
+	<!-- Base ruleset. -->
+	<rule ref="WordPress"/>
+
+	<!-- Project configuration. -->
+	<config name="minimum_wp_version" value="6.0"/>
+
+	<!-- Text domain for i18n checks. -->
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="airy-wishlist"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!-- Global prefixes for the plugin. -->
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="airy_wishlist"/>
+				<element value="Airy_Wishlist"/>
+				<element value="AIRY_WISHLIST"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!-- manage_woocommerce is a valid capability registered by WooCommerce. -->
+	<rule ref="WordPress.WP.Capabilities">
+		<properties>
+			<property name="custom_capabilities" type="array">
+				<element value="manage_woocommerce"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!--
+		The main plugin file conventionally contains both the bootstrap
+		function and the main plugin class, and is named after the plugin.
+	-->
+	<rule ref="WordPress.Files.FileName.InvalidClassFileName">
+		<exclude-pattern>airy-wishlist.php</exclude-pattern>
+	</rule>
+	<rule ref="Universal.Files.SeparateFunctionsFromOO.Mixed">
+		<exclude-pattern>airy-wishlist.php</exclude-pattern>
+	</rule>
+</ruleset>

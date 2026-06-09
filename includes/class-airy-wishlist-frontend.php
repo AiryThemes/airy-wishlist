@@ -77,8 +77,25 @@ class Airy_Wishlist_Frontend {
 				'enableAjax'       => get_option( 'airy_wishlist_enable_ajax', 'yes' ),
 				'redirectAfterAdd' => get_option( 'airy_wishlist_redirect_after_add', 'no' ),
 				'wishlistUrl'      => airy_wishlist_get_url(),
+				'multipleEnabled'  => get_option( 'airy_wishlist_multiple_enabled', 'no' ),
+				'buttonToggle'     => get_option( 'airy_wishlist_button_toggle', 'yes' ),
 				'addedMessage'     => get_option( 'airy_wishlist_product_added_message', __( 'Product added to wishlist!', 'airy-wishlist' ) ),
 				'removedMessage'   => get_option( 'airy_wishlist_product_removed_message', __( 'Product removed from wishlist.', 'airy-wishlist' ) ),
+				'i18n'             => array(
+					'addText'        => get_option( 'airy_wishlist_add_button_text', __( 'Add to Wishlist', 'airy-wishlist' ) ),
+					'addedText'      => get_option( 'airy_wishlist_added_button_text', __( 'Added to Wishlist', 'airy-wishlist' ) ),
+					'selectOptions'  => __( 'Please select product options before adding to wishlist.', 'airy-wishlist' ),
+					'allAddedToCart' => __( 'All products added to cart!', 'airy-wishlist' ),
+					'someFailed'     => __( 'Some products could not be added to cart.', 'airy-wishlist' ),
+					'genericError'   => __( 'An error occurred. Please try again.', 'airy-wishlist' ),
+					'chooseList'     => __( 'Add to which list?', 'airy-wishlist' ),
+					'newListName'    => __( 'New list name', 'airy-wishlist' ),
+					'create'         => __( 'Create', 'airy-wishlist' ),
+					'createNewList'  => __( '+ Create new list', 'airy-wishlist' ),
+					'renamePrompt'   => __( 'Enter a new name for this list:', 'airy-wishlist' ),
+					'newListPrompt'  => __( 'Name your new list:', 'airy-wishlist' ),
+					'deleteConfirm'  => __( 'Delete this list and all its items? This cannot be undone.', 'airy-wishlist' ),
+				),
 			)
 		);
 	}

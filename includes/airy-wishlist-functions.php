@@ -26,6 +26,16 @@ function airy_wishlist_get_count() {
 }
 
 /**
+ * Get a public, shareable URL for the current user's wishlist.
+ *
+ * @return string Shareable URL.
+ */
+function airy_wishlist_get_share_url() {
+	$data = Airy_Wishlist_Data::instance();
+	return $data->get_share_url();
+}
+
+/**
  * Check if product is in wishlist
  *
  * @param int $product_id Product ID to check.
@@ -45,6 +55,11 @@ function airy_wishlist_is_product_in_wishlist( $product_id, $variation_id = 0 ) 
  * @return string Button HTML.
  */
 function airy_wishlist_get_button_html( $product_id, $context = 'single' ) {
+	// Hide the button entirely for guests when guest wishlists are disabled.
+	if ( ! Airy_Wishlist_Data::instance()->is_enabled_for_visitor() ) {
+		return '';
+	}
+
 	$product = wc_get_product( $product_id );
 	if ( ! $product ) {
 		return '';

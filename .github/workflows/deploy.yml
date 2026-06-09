@@ -1,0 +1,32 @@
+name: Deploy to WordPress.org
+
+# Publishes a new version to the WordPress.org plugin SVN when you publish a
+# GitHub Release. The release tag must match the version (e.g. 1.7.4) and the
+# readme.txt "Stable tag" must match too.
+#
+# Requires two repository secrets (Settings > Secrets and variables > Actions):
+#   WPORG_SVN_USERNAME  - your WordPress.org username
+#   WPORG_SVN_PASSWORD  - your WordPress.org password (or account password)
+#
+# Dev files are excluded from the deployed package via .distignore.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to WordPress.org
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: WordPress.org plugin deploy
+        uses: 10up/action-wordpress-plugin-deploy@stable
+        env:
+          SVN_USERNAME: ${{ secrets.WPORG_SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.WPORG_SVN_PASSWORD }}
+          SLUG: airy-wishlist
