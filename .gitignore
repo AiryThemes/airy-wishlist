@@ -1,0 +1,16 @@
+# Dependencies
+/vendor/
+/node_modules/
+
+# Build output
+/build/
+*.zip
+
+# Editor / OS / local tooling
+.claude/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+*.csv

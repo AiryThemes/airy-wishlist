@@ -73,6 +73,42 @@
 	border-radius: 4px;
 }
 
+.airy-wishlist-share-link {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 15px;
+}
+
+.airy-wishlist-share-url {
+	flex: 1;
+	min-width: 0;
+	padding: 8px 12px;
+	border: 1px solid #ddd;
+	border-radius: 4px;
+	background-color: #fff;
+	color: #333;
+	font-size: 13px;
+}
+
+.airy-copy-share-link {
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.airy-wishlist-shared-notice {
+	margin-bottom: 20px;
+	padding: 12px 16px;
+	background-color: #eef6ff;
+	border: 1px solid #cfe2ff;
+	border-radius: 4px;
+	color: #1d4ed8;
+	font-weight: 500;
+}
+
+.airy-share-pinterest:hover {
+	background-color: #f0f0f0;
+}
+
 .airy-wishlist-share-buttons {
 	display: flex;
 	align-items: center;
@@ -101,6 +137,216 @@
 .airy-wishlist-share-buttons a:hover {
 	background-color: #f0f0f0;
 	border-color: #ccc;
+}
+
+/* Move-to-another-list control */
+.airy-wishlist-move {
+	margin-top: 8px;
+}
+
+.airy-move-select {
+	max-width: 100%;
+	padding: 5px 8px;
+	font-size: 12px;
+	border: 1px solid #ddd;
+	border-radius: 4px;
+	background-color: #fff;
+	color: #555;
+	cursor: pointer;
+}
+
+.airy-move-select:disabled {
+	opacity: 0.6;
+	cursor: default;
+}
+
+/* Notifications opt-in toggle */
+.airy-wishlist-notify {
+	margin-bottom: 20px;
+	padding: 12px 16px;
+	background-color: #f9f9f9;
+	border: 1px solid #e5e5e5;
+	border-radius: 4px;
+}
+
+.airy-notify-label {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 14px;
+	color: #333;
+	cursor: pointer;
+}
+
+.airy-notify-label input {
+	margin: 0;
+}
+
+.airy-wishlist-notify-guest {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+	font-size: 14px;
+	color: #333;
+}
+
+.airy-wishlist-notify-guest a {
+	font-weight: 600;
+	color: #e74c3c;
+	text-decoration: underline;
+}
+
+/* Multiple Wishlists - Switcher */
+.airy-wishlist-switcher {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	align-items: center;
+	gap: 10px;
+	margin-bottom: 20px;
+	padding-bottom: 12px;
+	border-bottom: 1px solid #e5e5e5;
+}
+
+.airy-wishlist-tabs {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
+
+.airy-wishlist-tab {
+	display: inline-block;
+	padding: 8px 16px;
+	border: 1px solid #ddd;
+	border-radius: 4px;
+	background-color: #fff;
+	color: #333;
+	text-decoration: none;
+	font-size: 14px;
+	transition: all 0.2s ease;
+}
+
+.airy-wishlist-tab:hover {
+	background-color: #f5f5f5;
+}
+
+.airy-wishlist-tab.active {
+	background-color: #333;
+	color: #fff;
+	border-color: #333;
+}
+
+.airy-wishlist-new-btn,
+.airy-wishlist-rename-btn,
+.airy-wishlist-delete-btn {
+	padding: 8px 14px;
+	border: 1px dashed #bbb;
+	border-radius: 4px;
+	background-color: transparent;
+	color: #555;
+	font-size: 13px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.airy-wishlist-new-btn:hover,
+.airy-wishlist-rename-btn:hover {
+	border-color: #333;
+	color: #333;
+}
+
+.airy-wishlist-list-actions {
+	display: flex;
+	gap: 8px;
+}
+
+.airy-wishlist-delete-btn {
+	border-style: solid;
+	border-color: #e0b4b4;
+	color: #c0392b;
+}
+
+.airy-wishlist-delete-btn:hover {
+	background-color: #e74c3c;
+	border-color: #e74c3c;
+	color: #fff;
+}
+
+/* Multiple Wishlists - Add-to-list chooser popover */
+.airy-wishlist-chooser {
+	min-width: 220px;
+	max-width: 280px;
+	background-color: #fff;
+	border: 1px solid #ddd;
+	border-radius: 6px;
+	box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+	padding: 10px;
+}
+
+.airy-wishlist-chooser-title {
+	font-weight: 600;
+	font-size: 13px;
+	margin-bottom: 8px;
+	color: #333;
+}
+
+.airy-wishlist-chooser-lists {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.airy-wishlist-chooser-item {
+	display: block;
+	width: 100%;
+	text-align: left;
+	padding: 8px 10px;
+	border: none;
+	border-radius: 4px;
+	background-color: #f7f7f7;
+	color: #333;
+	font-size: 13px;
+	cursor: pointer;
+	transition: background-color 0.2s ease;
+}
+
+.airy-wishlist-chooser-item:hover {
+	background-color: #e74c3c;
+	color: #fff;
+}
+
+.airy-wishlist-chooser-create {
+	display: flex;
+	gap: 6px;
+	margin-top: 8px;
+	padding-top: 8px;
+	border-top: 1px solid #eee;
+}
+
+.airy-wishlist-chooser-create input {
+	flex: 1;
+	min-width: 0;
+	padding: 6px 8px;
+	border: 1px solid #ddd;
+	border-radius: 4px;
+	font-size: 13px;
+}
+
+.airy-wishlist-chooser-create-btn {
+	padding: 6px 12px;
+	border: none;
+	border-radius: 4px;
+	background-color: #333;
+	color: #fff;
+	font-size: 13px;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.airy-wishlist-chooser-create-btn:hover {
+	background-color: #000;
 }
 
 /* Wishlist Table */

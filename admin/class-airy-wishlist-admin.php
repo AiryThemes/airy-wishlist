@@ -95,8 +95,11 @@ class Airy_Wishlist_Admin {
 		register_setting( 'airy_wishlist_general', 'airy_wishlist_page_id', array( 'sanitize_callback' => 'absint' ) );
 		register_setting( 'airy_wishlist_general', 'airy_wishlist_redirect_after_add', array( 'sanitize_callback' => 'sanitize_text_field' ) );
 		register_setting( 'airy_wishlist_general', 'airy_wishlist_remove_after_add_to_cart', array( 'sanitize_callback' => 'sanitize_text_field' ) );
+		register_setting( 'airy_wishlist_general', 'airy_wishlist_button_toggle', array( 'sanitize_callback' => 'sanitize_text_field' ) );
 		register_setting( 'airy_wishlist_general', 'airy_wishlist_guest_enabled', array( 'sanitize_callback' => 'sanitize_text_field' ) );
 		register_setting( 'airy_wishlist_general', 'airy_wishlist_cookie_expiry', array( 'sanitize_callback' => 'absint' ) );
+		register_setting( 'airy_wishlist_general', 'airy_wishlist_multiple_enabled', array( 'sanitize_callback' => 'sanitize_text_field' ) );
+		register_setting( 'airy_wishlist_general', 'airy_wishlist_myaccount_enabled', array( 'sanitize_callback' => 'sanitize_text_field' ) );
 
 		// Button settings.
 		register_setting( 'airy_wishlist_button', 'airy_wishlist_button_position', array( 'sanitize_callback' => 'sanitize_text_field' ) );
@@ -139,6 +142,88 @@ class Airy_Wishlist_Admin {
 		register_setting( 'airy_wishlist_labels', 'airy_wishlist_product_removed_message', array( 'sanitize_callback' => 'sanitize_text_field' ) );
 		register_setting( 'airy_wishlist_labels', 'airy_wishlist_add_to_cart_text', array( 'sanitize_callback' => 'sanitize_text_field' ) );
 		register_setting( 'airy_wishlist_labels', 'airy_wishlist_empty_text', array( 'sanitize_callback' => 'sanitize_text_field' ) );
+
+		// Notifications.
+		register_setting( 'airy_wishlist_notifications', 'airy_wishlist_notify_enabled', array( 'sanitize_callback' => 'sanitize_text_field' ) );
+		register_setting( 'airy_wishlist_notifications', 'airy_wishlist_notify_back_in_stock', array( 'sanitize_callback' => 'sanitize_text_field' ) );
+		register_setting( 'airy_wishlist_notifications', 'airy_wishlist_notify_price_drop', array( 'sanitize_callback' => 'sanitize_text_field' ) );
+		register_setting( 'airy_wishlist_notifications', 'airy_wishlist_notify_low_stock', array( 'sanitize_callback' => 'sanitize_text_field' ) );
+		register_setting( 'airy_wishlist_notifications', 'airy_wishlist_notify_on_sale', array( 'sanitize_callback' => 'sanitize_text_field' ) );
+		register_setting( 'airy_wishlist_notifications', 'airy_wishlist_notify_frequency', array( 'sanitize_callback' => 'sanitize_text_field' ) );
+		register_setting( 'airy_wishlist_notifications', 'airy_wishlist_notify_subject', array( 'sanitize_callback' => 'sanitize_text_field' ) );
+	}
+
+	/**
+	 * Notifications settings tab
+	 */
+	private function notifications_settings() {
+		?>
+		<form method="post" action="options.php">
+			<?php settings_fields( 'airy_wishlist_notifications' ); ?>
+			<table class="form-table">
+				<tr>
+					<th scope="row">
+						<label><?php esc_html_e( 'Enable Notifications', 'airy-wishlist' ); ?></label>
+					</th>
+					<td>
+						<label>
+							<input type="checkbox" name="airy_wishlist_notify_enabled" value="yes" <?php checked( get_option( 'airy_wishlist_notify_enabled', 'no' ), 'yes' ); ?>>
+							<?php esc_html_e( 'Email logged-in customers about changes to their wishlisted items', 'airy-wishlist' ); ?>
+						</label>
+						<p class="description"><?php esc_html_e( 'Customers opt in per wishlist (a "Notify me" toggle appears on the wishlist page). Sent via WP-Cron.', 'airy-wishlist' ); ?></p>
+					</td>
+				</tr>
+
+				<tr>
+					<th scope="row">
+						<label><?php esc_html_e( 'Notify About', 'airy-wishlist' ); ?></label>
+					</th>
+					<td>
+						<label style="display:block;margin-bottom:6px;">
+							<input type="checkbox" name="airy_wishlist_notify_back_in_stock" value="yes" <?php checked( get_option( 'airy_wishlist_notify_back_in_stock', 'yes' ), 'yes' ); ?>>
+							<?php esc_html_e( 'Back in stock', 'airy-wishlist' ); ?>
+						</label>
+						<label style="display:block;margin-bottom:6px;">
+							<input type="checkbox" name="airy_wishlist_notify_price_drop" value="yes" <?php checked( get_option( 'airy_wishlist_notify_price_drop', 'yes' ), 'yes' ); ?>>
+							<?php esc_html_e( 'Price drop', 'airy-wishlist' ); ?>
+						</label>
+						<label style="display:block;margin-bottom:6px;">
+							<input type="checkbox" name="airy_wishlist_notify_low_stock" value="yes" <?php checked( get_option( 'airy_wishlist_notify_low_stock', 'no' ), 'yes' ); ?>>
+							<?php esc_html_e( 'Low stock (only a few left)', 'airy-wishlist' ); ?>
+						</label>
+						<label style="display:block;">
+							<input type="checkbox" name="airy_wishlist_notify_on_sale" value="yes" <?php checked( get_option( 'airy_wishlist_notify_on_sale', 'yes' ), 'yes' ); ?>>
+							<?php esc_html_e( 'On sale', 'airy-wishlist' ); ?>
+						</label>
+					</td>
+				</tr>
+
+				<tr>
+					<th scope="row">
+						<label><?php esc_html_e( 'Check Frequency', 'airy-wishlist' ); ?></label>
+					</th>
+					<td>
+						<select name="airy_wishlist_notify_frequency">
+							<option value="hourly" <?php selected( get_option( 'airy_wishlist_notify_frequency', 'daily' ), 'hourly' ); ?>><?php esc_html_e( 'Hourly', 'airy-wishlist' ); ?></option>
+							<option value="twicedaily" <?php selected( get_option( 'airy_wishlist_notify_frequency', 'daily' ), 'twicedaily' ); ?>><?php esc_html_e( 'Twice Daily', 'airy-wishlist' ); ?></option>
+							<option value="daily" <?php selected( get_option( 'airy_wishlist_notify_frequency', 'daily' ), 'daily' ); ?>><?php esc_html_e( 'Daily', 'airy-wishlist' ); ?></option>
+						</select>
+						<p class="description"><?php esc_html_e( 'How often to check wishlisted items for changes.', 'airy-wishlist' ); ?></p>
+					</td>
+				</tr>
+
+				<tr>
+					<th scope="row">
+						<label><?php esc_html_e( 'Email Subject', 'airy-wishlist' ); ?></label>
+					</th>
+					<td>
+						<input type="text" name="airy_wishlist_notify_subject" value="<?php echo esc_attr( get_option( 'airy_wishlist_notify_subject', __( 'Updates on your wishlist items', 'airy-wishlist' ) ) ); ?>" class="regular-text">
+					</td>
+				</tr>
+			</table>
+			<?php submit_button(); ?>
+		</form>
+		<?php
 	}
 
 	/**
@@ -169,6 +254,15 @@ class Airy_Wishlist_Admin {
 				<a href="?page=airy-wishlist-settings&tab=labels" class="nav-tab <?php echo 'labels' === $active_tab ? 'nav-tab-active' : ''; ?>">
 					<?php esc_html_e( 'Labels', 'airy-wishlist' ); ?>
 				</a>
+				<a href="?page=airy-wishlist-settings&tab=notifications" class="nav-tab <?php echo 'notifications' === $active_tab ? 'nav-tab-active' : ''; ?>">
+					<?php esc_html_e( 'Notifications', 'airy-wishlist' ); ?>
+				</a>
+				<a href="?page=airy-wishlist-settings&tab=analytics" class="nav-tab <?php echo 'analytics' === $active_tab ? 'nav-tab-active' : ''; ?>">
+					<?php esc_html_e( 'Analytics', 'airy-wishlist' ); ?>
+				</a>
+				<a href="?page=airy-wishlist-settings&tab=marketing" class="nav-tab <?php echo 'marketing' === $active_tab ? 'nav-tab-active' : ''; ?>">
+					<?php esc_html_e( 'Marketing', 'airy-wishlist' ); ?>
+				</a>
 			</h2>
 			
 			<div class="airy-wishlist-settings-content">
@@ -191,6 +285,15 @@ class Airy_Wishlist_Admin {
 						break;
 					case 'labels':
 						$this->labels_settings();
+						break;
+					case 'notifications':
+						$this->notifications_settings();
+						break;
+					case 'analytics':
+						Airy_Wishlist_Analytics::instance()->render_dashboard();
+						break;
+					case 'marketing':
+						Airy_Wishlist_Marketing::instance()->render_dashboard();
 						break;
 				}
 				?>
@@ -260,6 +363,19 @@ class Airy_Wishlist_Admin {
 						</label>
 					</td>
 				</tr>
+
+				<tr>
+					<th scope="row">
+						<label><?php esc_html_e( 'Wishlist Button Toggle', 'airy-wishlist' ); ?></label>
+					</th>
+					<td>
+						<label>
+							<input type="checkbox" name="airy_wishlist_button_toggle" value="yes" <?php checked( get_option( 'airy_wishlist_button_toggle', 'yes' ), 'yes' ); ?>>
+							<?php esc_html_e( 'Clicking the "Add to Wishlist" button again removes the product from the wishlist', 'airy-wishlist' ); ?>
+						</label>
+						<p class="description"><?php esc_html_e( 'When enabled, the button works as a toggle: first click adds the product, second click removes it. Requires AJAX.', 'airy-wishlist' ); ?></p>
+					</td>
+				</tr>
 				
 				<tr>
 					<th scope="row">
@@ -270,6 +386,32 @@ class Airy_Wishlist_Admin {
 							<input type="checkbox" name="airy_wishlist_guest_enabled" value="yes" <?php checked( get_option( 'airy_wishlist_guest_enabled', 'yes' ), 'yes' ); ?>>
 							<?php esc_html_e( 'Enable wishlist for guest users', 'airy-wishlist' ); ?>
 						</label>
+					</td>
+				</tr>
+
+				<tr>
+					<th scope="row">
+						<label><?php esc_html_e( 'Multiple Wishlists', 'airy-wishlist' ); ?></label>
+					</th>
+					<td>
+						<label>
+							<input type="checkbox" name="airy_wishlist_multiple_enabled" value="yes" <?php checked( get_option( 'airy_wishlist_multiple_enabled', 'no' ), 'yes' ); ?>>
+							<?php esc_html_e( 'Allow customers to create and manage multiple named wishlists', 'airy-wishlist' ); ?>
+						</label>
+						<p class="description"><?php esc_html_e( 'When enabled, customers can create lists such as "Birthday" or "Christmas", switch between them on the wishlist page, and choose a target list when adding products.', 'airy-wishlist' ); ?></p>
+					</td>
+				</tr>
+
+				<tr>
+					<th scope="row">
+						<label><?php esc_html_e( 'My Account Menu', 'airy-wishlist' ); ?></label>
+					</th>
+					<td>
+						<label>
+							<input type="checkbox" name="airy_wishlist_myaccount_enabled" value="yes" <?php checked( get_option( 'airy_wishlist_myaccount_enabled', 'yes' ), 'yes' ); ?>>
+							<?php esc_html_e( 'Show a "Wishlist" tab in the WooCommerce My Account menu', 'airy-wishlist' ); ?>
+						</label>
+						<p class="description"><?php esc_html_e( 'Adds a Wishlist link under My Account so logged-in customers can view their wishlist there.', 'airy-wishlist' ); ?></p>
 					</td>
 				</tr>
 				

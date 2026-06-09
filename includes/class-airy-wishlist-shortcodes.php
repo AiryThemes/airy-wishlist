@@ -22,6 +22,27 @@ class Airy_Wishlist_Shortcodes {
 	private static $instance = null;
 
 	/**
+	 * Whether multiple wishlists are active for the current render.
+	 *
+	 * @var bool
+	 */
+	private $ctx_multiple = false;
+
+	/**
+	 * All of the current owner's wishlists for the current render.
+	 *
+	 * @var array
+	 */
+	private $ctx_wishlists = array();
+
+	/**
+	 * The active wishlist ID for the current render.
+	 *
+	 * @var int
+	 */
+	private $ctx_active_id = 0;
+
+	/**
 	 * Get singleton instance
 	 *
 	 * @return Airy_Wishlist_Shortcodes
@@ -57,24 +78,277 @@ class Airy_Wishlist_Shortcodes {
 			$atts
 		);
 
+		$data = Airy_Wishlist_Data::instance();
+
+		// Detect a shared wishlist view via public token.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only public view keyed by an unguessable token, no state change.
+		$token = isset( $_GET['airy_wid'] ) ? sanitize_text_field( wp_unslash( $_GET['airy_wid'] ) ) : '';
+
+		// Guests can't use the wishlist when guest wishlists are disabled (shared views are still allowed).
+		if ( '' === $token && ! $data->is_enabled_for_visitor() ) {
+			return $this->get_guest_disabled_notice();
+		}
+		$is_shared = false;
+		$wishlists = array();
+		$active_id = 0;
+
+		// Reset render context.
+		$this->ctx_multiple  = false;
+		$this->ctx_wishlists = array();
+		$this->ctx_active_id = 0;
+
+		if ( '' !== $token ) {
+			$shared = $data->get_shared_wishlist( $token );
+
+			if ( null === $shared ) {
+				return $this->get_shared_not_found();
+			}
+
+			$is_shared = true;
+			$items     = $shared['items'];
+		} else {
+			// Owner view contains personalised data; prevent full-page caches from serving it to others.
+			if ( ! defined( 'DONOTCACHEPAGE' ) ) {
+				// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound -- Standard WordPress / cache-plugin no-cache constant.
+				define( 'DONOTCACHEPAGE', true );
+			}
+
+			if ( $data->is_multiple_enabled() ) {
+				$wishlists = $data->get_wishlists();
+
+				// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only list selection; ownership is validated below.
+				$active_id = isset( $_GET['airy_list'] ) ? absint( $_GET['airy_list'] ) : 0;
+
+				if ( ! $active_id || ! $data->owns_wishlist( $active_id ) ) {
+					$active_id = ! empty( $wishlists ) ? (int) $wishlists[0]->id : 0;
+				}
+
+				// Expose context to the item renderers (move dropdown, sharing).
+				$this->ctx_multiple  = true;
+				$this->ctx_wishlists = $wishlists;
+				$this->ctx_active_id = $active_id;
+
+				$items = $active_id ? $data->get_items_for( $active_id ) : array();
+			} else {
+				$items = $data->get_items();
+			}
+		}
+
 		ob_start();
 
-		$data  = Airy_Wishlist_Data::instance();
-		$items = $data->get_items();
+		do_action( 'airy_wishlist_before_table', $is_shared );
 
-		do_action( 'airy_wishlist_before_table' );
+		if ( $is_shared ) {
+			$this->render_shared_heading();
+		}
+
+		if ( ! $is_shared && $data->is_multiple_enabled() ) {
+			$this->render_wishlist_switcher( $wishlists, $active_id );
+		}
+
+		// Stock/price notification opt-in (shown when the feature is enabled).
+		if ( ! $is_shared && 'yes' === get_option( 'airy_wishlist_notify_enabled', 'no' ) ) {
+			if ( is_user_logged_in() ) {
+				// Logged-in customers get the per-wishlist opt-in toggle.
+				$current = null;
+
+				if ( $data->is_multiple_enabled() ) {
+					foreach ( $wishlists as $wishlist ) {
+						if ( (int) $wishlist->id === (int) $active_id ) {
+							$current = $wishlist;
+							break;
+						}
+					}
+				} else {
+					$current = $data->get_wishlist();
+				}
+
+				if ( $current ) {
+					$this->render_notify_toggle( $current );
+				}
+			} else {
+				// Guests can't receive notifications (no account email); prompt to log in.
+				$this->render_notify_login_prompt();
+			}
+		}
 
 		if ( empty( $items ) ) {
 			$this->render_empty_wishlist();
 		} elseif ( 'grid' === $atts['layout'] ) {
-				$this->render_grid_layout( $items, $atts['columns'] );
+				$this->render_grid_layout( $items, $atts['columns'], $is_shared );
 		} else {
-			$this->render_table_layout( $items );
+			$this->render_table_layout( $items, $is_shared );
 		}
 
-		do_action( 'airy_wishlist_after_table' );
+		do_action( 'airy_wishlist_after_table', $is_shared );
 
 		return ob_get_clean();
+	}
+
+	/**
+	 * Message shown when a shared wishlist token is invalid or expired.
+	 *
+	 * @return string HTML output.
+	 */
+	private function get_shared_not_found() {
+		ob_start();
+		?>
+		<div class="airy-wishlist-empty">
+			<p><?php esc_html_e( 'This shared wishlist could not be found. The link may be invalid or has been removed.', 'airy-wishlist' ); ?></p>
+			<a href="<?php echo esc_url( wc_get_page_permalink( 'shop' ) ); ?>" class="button">
+				<?php esc_html_e( 'Continue Shopping', 'airy-wishlist' ); ?>
+			</a>
+		</div>
+		<?php
+		return ob_get_clean();
+	}
+
+	/**
+	 * Notice shown to guests when guest wishlists are disabled.
+	 *
+	 * @return string HTML output.
+	 */
+	private function get_guest_disabled_notice() {
+		$login_url = function_exists( 'wc_get_page_permalink' ) ? wc_get_page_permalink( 'myaccount' ) : wp_login_url();
+		ob_start();
+		?>
+		<div class="airy-wishlist-empty">
+			<p><?php esc_html_e( 'Please log in to create and manage your wishlist.', 'airy-wishlist' ); ?></p>
+			<?php if ( $login_url ) : ?>
+				<a href="<?php echo esc_url( $login_url ); ?>" class="button">
+					<?php esc_html_e( 'Log in', 'airy-wishlist' ); ?>
+				</a>
+			<?php endif; ?>
+		</div>
+		<?php
+		return ob_get_clean();
+	}
+
+	/**
+	 * Heading shown above a shared (read-only) wishlist.
+	 */
+	private function render_shared_heading() {
+		?>
+		<div class="airy-wishlist-shared-notice">
+			<p><?php esc_html_e( "You're viewing a shared wishlist.", 'airy-wishlist' ); ?></p>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Render the per-wishlist notification opt-in toggle.
+	 *
+	 * @param object $wishlist Wishlist object.
+	 */
+	private function render_notify_toggle( $wishlist ) {
+		$enabled = ! empty( $wishlist->notifications_enabled );
+		?>
+		<div class="airy-wishlist-notify">
+			<label class="airy-notify-label">
+				<input type="checkbox" class="airy-notify-toggle" data-wishlist-id="<?php echo esc_attr( $wishlist->id ); ?>" <?php checked( $enabled ); ?>>
+				<?php esc_html_e( 'Notify me by email about stock & price changes for items in this list', 'airy-wishlist' ); ?>
+			</label>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Prompt guests to log in so they can enable stock/price notifications.
+	 */
+	private function render_notify_login_prompt() {
+		$login_url = function_exists( 'wc_get_page_permalink' ) ? wc_get_page_permalink( 'myaccount' ) : wp_login_url();
+		?>
+		<div class="airy-wishlist-notify airy-wishlist-notify-guest">
+			<span><?php esc_html_e( 'Want email alerts when these items drop in price or come back in stock?', 'airy-wishlist' ); ?></span>
+			<?php if ( $login_url ) : ?>
+				<a href="<?php echo esc_url( $login_url ); ?>"><?php esc_html_e( 'Log in to enable notifications', 'airy-wishlist' ); ?></a>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Render the "Move to another list" control for an item.
+	 *
+	 * Only shown when multiple wishlists are enabled and there is at least
+	 * one other list to move the product into.
+	 *
+	 * @param object $item Wishlist item object.
+	 */
+	private function render_move_control( $item ) {
+		if ( ! $this->ctx_multiple ) {
+			return;
+		}
+
+		$targets = array();
+		foreach ( $this->ctx_wishlists as $wishlist ) {
+			if ( (int) $wishlist->id !== (int) $this->ctx_active_id ) {
+				$targets[] = $wishlist;
+			}
+		}
+
+		if ( empty( $targets ) ) {
+			return;
+		}
+		?>
+		<div class="airy-wishlist-move">
+			<select class="airy-move-select" data-product-id="<?php echo esc_attr( $item->product_id ); ?>" data-variation-id="<?php echo esc_attr( $item->variation_id ); ?>" data-from-id="<?php echo esc_attr( $this->ctx_active_id ); ?>">
+				<option value=""><?php esc_html_e( 'Move to…', 'airy-wishlist' ); ?></option>
+				<?php foreach ( $targets as $target ) : ?>
+					<option value="<?php echo esc_attr( $target->id ); ?>"><?php echo esc_html( $target->wishlist_name ); ?></option>
+				<?php endforeach; ?>
+			</select>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Render the multiple-wishlist switcher (tabs + management controls).
+	 *
+	 * @param array $wishlists Array of the owner's wishlist objects.
+	 * @param int   $active_id Currently active wishlist ID.
+	 */
+	private function render_wishlist_switcher( $wishlists, $active_id ) {
+		$base_url = airy_wishlist_get_url();
+		$active   = null;
+
+		foreach ( $wishlists as $wishlist ) {
+			if ( (int) $wishlist->id === (int) $active_id ) {
+				$active = $wishlist;
+				break;
+			}
+		}
+		?>
+		<div class="airy-wishlist-switcher" data-active-id="<?php echo esc_attr( $active_id ); ?>">
+			<div class="airy-wishlist-tabs">
+				<?php
+				foreach ( $wishlists as $wishlist ) :
+					$tab_url   = add_query_arg( 'airy_list', (int) $wishlist->id, $base_url );
+					$is_active = (int) $wishlist->id === (int) $active_id;
+					?>
+					<a href="<?php echo esc_url( $tab_url ); ?>" class="airy-wishlist-tab <?php echo $is_active ? 'active' : ''; ?>" data-wishlist-id="<?php echo esc_attr( $wishlist->id ); ?>">
+						<?php echo esc_html( $wishlist->wishlist_name ); ?>
+					</a>
+				<?php endforeach; ?>
+				<button type="button" class="airy-wishlist-new-btn">
+					<?php esc_html_e( '+ New List', 'airy-wishlist' ); ?>
+				</button>
+			</div>
+
+			<?php if ( $active ) : ?>
+			<div class="airy-wishlist-list-actions">
+				<button type="button" class="airy-wishlist-rename-btn" data-wishlist-id="<?php echo esc_attr( $active->id ); ?>" data-current-name="<?php echo esc_attr( $active->wishlist_name ); ?>">
+					<?php esc_html_e( 'Rename', 'airy-wishlist' ); ?>
+				</button>
+				<?php if ( ! $active->is_default ) : ?>
+				<button type="button" class="airy-wishlist-delete-btn" data-wishlist-id="<?php echo esc_attr( $active->id ); ?>">
+					<?php esc_html_e( 'Delete', 'airy-wishlist' ); ?>
+				</button>
+				<?php endif; ?>
+			</div>
+			<?php endif; ?>
+		</div>
+		<?php
 	}
 
 	/**
@@ -96,21 +370,22 @@ class Airy_Wishlist_Shortcodes {
 	 * Render table layout
 	 *
 	 * @param array $items Array of wishlist item objects.
+	 * @param bool  $is_shared Whether this is a read-only shared view.
 	 */
-	private function render_table_layout( $items ) {
+	private function render_table_layout( $items, $is_shared = false ) {
 		$show_stock       = 'yes' === get_option( 'airy_wishlist_show_stock_status', 'yes' );
 		$show_date        = 'yes' === get_option( 'airy_wishlist_show_date_added', 'yes' );
 		$show_add_to_cart = 'yes' === get_option( 'airy_wishlist_show_add_to_cart', 'yes' );
-		$show_remove      = 'yes' === get_option( 'airy_wishlist_show_remove_button', 'yes' );
+		$show_remove      = ! $is_shared && 'yes' === get_option( 'airy_wishlist_show_remove_button', 'yes' );
 		$show_add_all     = 'yes' === get_option( 'airy_wishlist_show_add_all_to_cart', 'yes' );
 		?>
 		<div class="airy-wishlist-wrapper">
-			<?php if ( 'yes' === get_option( 'airy_wishlist_enable_share', 'yes' ) ) : ?>
+			<?php if ( ! $is_shared && 'yes' === get_option( 'airy_wishlist_enable_share', 'yes' ) ) : ?>
 				<div class="airy-wishlist-share">
 					<?php $this->render_share_buttons(); ?>
 				</div>
 			<?php endif; ?>
-			
+
 			<table class="airy-wishlist-table">
 				<thead>
 					<tr>
@@ -169,14 +444,15 @@ class Airy_Wishlist_Shortcodes {
 		// Check if product type allows add to cart.
 		$can_add_to_cart = $product->is_purchasable() && $product->is_in_stock() && ! $product->is_type( 'grouped' );
 		?>
-		<tr class="airy-wishlist-item" data-product-id="<?php echo esc_attr( $item->product_id ); ?>" data-variation-id="<?php echo esc_attr( $item->variation_id ); ?>">
+		<tr class="airy-wishlist-item" data-product-id="<?php echo esc_attr( $item->product_id ); ?>" data-variation-id="<?php echo esc_attr( $item->variation_id ); ?>" data-wishlist-id="<?php echo esc_attr( $this->ctx_active_id ); ?>">
 			<?php if ( $show_remove ) : ?>
 			<td class="airy-wishlist-remove">
 				<form method="post" class="airy-remove-form" style="display:inline;">
 					<?php wp_nonce_field( 'airy_remove_' . $item->product_id . '_' . $item->variation_id, 'airy_remove_nonce' ); ?>
 					<input type="hidden" name="airy_remove_product" value="<?php echo esc_attr( $item->product_id ); ?>">
 					<input type="hidden" name="airy_remove_variation" value="<?php echo esc_attr( $item->variation_id ); ?>">
-					<button type="submit" class="airy-remove-from-wishlist" data-product-id="<?php echo esc_attr( $item->product_id ); ?>" data-variation-id="<?php echo esc_attr( $item->variation_id ); ?>">
+					<input type="hidden" name="airy_remove_wishlist" value="<?php echo esc_attr( $this->ctx_active_id ); ?>">
+					<button type="submit" class="airy-remove-from-wishlist" data-product-id="<?php echo esc_attr( $item->product_id ); ?>" data-variation-id="<?php echo esc_attr( $item->variation_id ); ?>" data-wishlist-id="<?php echo esc_attr( $this->ctx_active_id ); ?>">
 						&times;
 					</button>
 				</form>
@@ -200,9 +476,10 @@ class Airy_Wishlist_Shortcodes {
 					echo wp_kses_post( wc_get_formatted_variation( $product, true ) );
 					echo '</div>';
 				}
+				$this->render_move_control( $item );
 				?>
 			</td>
-			
+
 			<td class="airy-wishlist-price">
 				<?php echo wp_kses_post( $product->get_price_html() ); ?>
 			</td>
@@ -228,7 +505,7 @@ class Airy_Wishlist_Shortcodes {
 			<?php if ( $show_add_to_cart ) : ?>
 			<td class="airy-wishlist-cart">
 				<?php if ( $can_add_to_cart ) : ?>
-					<button type="button" class="button airy-add-to-cart-from-wishlist" data-product-id="<?php echo esc_attr( $item->product_id ); ?>" data-variation-id="<?php echo esc_attr( $item->variation_id ); ?>">
+					<button type="button" class="button airy-add-to-cart-from-wishlist" data-product-id="<?php echo esc_attr( $item->product_id ); ?>" data-variation-id="<?php echo esc_attr( $item->variation_id ); ?>" data-wishlist-id="<?php echo esc_attr( $this->ctx_active_id ); ?>">
 						<?php echo esc_html( get_option( 'airy_wishlist_add_to_cart_text', __( 'Add to Cart', 'airy-wishlist' ) ) ); ?>
 					</button>
 				<?php elseif ( $product->is_type( 'grouped' ) ) : ?>
@@ -247,12 +524,18 @@ class Airy_Wishlist_Shortcodes {
 	 *
 	 * @param array $items Array of wishlist item objects.
 	 * @param int   $columns Number of columns to display.
+	 * @param bool  $is_shared Whether this is a read-only shared view.
 	 */
-	private function render_grid_layout( $items, $columns ) {
+	private function render_grid_layout( $items, $columns, $is_shared = false ) {
 		?>
+		<?php if ( ! $is_shared && 'yes' === get_option( 'airy_wishlist_enable_share', 'yes' ) ) : ?>
+			<div class="airy-wishlist-share">
+				<?php $this->render_share_buttons(); ?>
+			</div>
+		<?php endif; ?>
 		<div class="airy-wishlist-grid columns-<?php echo esc_attr( $columns ); ?>">
 			<?php foreach ( $items as $item ) : ?>
-				<?php $this->render_grid_item( $item ); ?>
+				<?php $this->render_grid_item( $item, $is_shared ); ?>
 			<?php endforeach; ?>
 		</div>
 		<?php
@@ -260,28 +543,36 @@ class Airy_Wishlist_Shortcodes {
 
 	/**
 	 * Render grid item
+	 *
+	 * @param object $item      Wishlist item object.
+	 * @param bool   $is_shared Whether this is a read-only shared view.
 	 */
-	private function render_grid_item( $item ) {
+	private function render_grid_item( $item, $is_shared = false ) {
 		$product_id = $item->variation_id > 0 ? $item->variation_id : $item->product_id;
 		$product    = wc_get_product( $product_id );
 
 		if ( ! $product ) {
 			return;
 		}
+
+		$show_remove = ! $is_shared && 'yes' === get_option( 'airy_wishlist_show_remove_button', 'yes' );
 		?>
 		<div class="airy-wishlist-grid-item">
 			<div class="airy-wishlist-grid-image">
 				<a href="<?php echo esc_url( $product->get_permalink() ); ?>">
 					<?php echo wp_kses_post( $product->get_image( 'woocommerce_thumbnail' ) ); ?>
 				</a>
+				<?php if ( $show_remove ) : ?>
 				<form method="post" class="airy-remove-form" style="display:inline;">
 					<?php wp_nonce_field( 'airy_remove_' . $item->product_id . '_' . $item->variation_id, 'airy_remove_nonce' ); ?>
 					<input type="hidden" name="airy_remove_product" value="<?php echo esc_attr( $item->product_id ); ?>">
 					<input type="hidden" name="airy_remove_variation" value="<?php echo esc_attr( $item->variation_id ); ?>">
-					<button type="submit" class="airy-remove-from-wishlist" data-product-id="<?php echo esc_attr( $item->product_id ); ?>" data-variation-id="<?php echo esc_attr( $item->variation_id ); ?>">
+					<input type="hidden" name="airy_remove_wishlist" value="<?php echo esc_attr( $this->ctx_active_id ); ?>">
+					<button type="submit" class="airy-remove-from-wishlist" data-product-id="<?php echo esc_attr( $item->product_id ); ?>" data-variation-id="<?php echo esc_attr( $item->variation_id ); ?>" data-wishlist-id="<?php echo esc_attr( $this->ctx_active_id ); ?>">
 						&times;
 					</button>
 				</form>
+				<?php endif; ?>
 			</div>
 			<div class="airy-wishlist-grid-content">
 				<h3 class="airy-wishlist-grid-title">
@@ -301,7 +592,7 @@ class Airy_Wishlist_Shortcodes {
 					<?php echo wp_kses_post( $product->get_price_html() ); ?>
 				</div>
 				<?php if ( $product->is_purchasable() && $product->is_in_stock() && ! $product->is_type( 'grouped' ) ) : ?>
-					<button type="button" class="button airy-add-to-cart-from-wishlist" data-product-id="<?php echo esc_attr( $item->product_id ); ?>" data-variation-id="<?php echo esc_attr( $item->variation_id ); ?>">
+					<button type="button" class="button airy-add-to-cart-from-wishlist" data-product-id="<?php echo esc_attr( $item->product_id ); ?>" data-variation-id="<?php echo esc_attr( $item->variation_id ); ?>" data-wishlist-id="<?php echo esc_attr( $this->ctx_active_id ); ?>">
 						<?php echo esc_html( get_option( 'airy_wishlist_add_to_cart_text', __( 'Add to Cart', 'airy-wishlist' ) ) ); ?>
 					</button>
 				<?php elseif ( $product->is_type( 'grouped' ) ) : ?>
@@ -309,6 +600,7 @@ class Airy_Wishlist_Shortcodes {
 						<?php esc_html_e( 'View Product', 'airy-wishlist' ); ?>
 					</a>
 				<?php endif; ?>
+				<?php $this->render_move_control( $item ); ?>
 			</div>
 		</div>
 		<?php
@@ -318,26 +610,46 @@ class Airy_Wishlist_Shortcodes {
 	 * Render share buttons
 	 */
 	private function render_share_buttons() {
-		$url   = airy_wishlist_get_url();
+		$data = Airy_Wishlist_Data::instance();
+
+		// Share the wishlist currently being viewed (the active list when multiple are enabled).
+		$url = $this->ctx_active_id ? $data->get_share_url_for( $this->ctx_active_id ) : $data->get_share_url();
+
+		if ( empty( $url ) ) {
+			$url = airy_wishlist_get_url();
+		}
+
 		$title = get_option( 'airy_wishlist_sharing_title', __( 'Check out my wishlist!', 'airy-wishlist' ) );
 		?>
+		<div class="airy-wishlist-share-link">
+			<input type="text" class="airy-wishlist-share-url" value="<?php echo esc_url( $url ); ?>" readonly onclick="this.select();">
+			<button type="button" class="button airy-copy-share-link" data-copied-text="<?php esc_attr_e( 'Copied!', 'airy-wishlist' ); ?>">
+				<?php esc_html_e( 'Copy Link', 'airy-wishlist' ); ?>
+			</button>
+		</div>
 		<div class="airy-wishlist-share-buttons">
 			<span><?php esc_html_e( 'Share:', 'airy-wishlist' ); ?></span>
-			
+
 			<?php if ( 'yes' === get_option( 'airy_wishlist_share_facebook', 'yes' ) ) : ?>
-			<a href="https://www.facebook.com/sharer/sharer.php?u=<?php echo rawurlencode( $url ); ?>" target="_blank" class="airy-share-facebook">
+			<a href="https://www.facebook.com/sharer/sharer.php?u=<?php echo rawurlencode( $url ); ?>" target="_blank" rel="noopener noreferrer" class="airy-share-facebook">
 				Facebook
 			</a>
 			<?php endif; ?>
 			
 			<?php if ( 'yes' === get_option( 'airy_wishlist_share_twitter', 'yes' ) ) : ?>
-			<a href="https://twitter.com/intent/tweet?url=<?php echo rawurlencode( $url ); ?>&text=<?php echo rawurlencode( $title ); ?>" target="_blank" class="airy-share-twitter">
+			<a href="https://twitter.com/intent/tweet?url=<?php echo rawurlencode( $url ); ?>&text=<?php echo rawurlencode( $title ); ?>" target="_blank" rel="noopener noreferrer" class="airy-share-twitter">
 				Twitter
 			</a>
 			<?php endif; ?>
 			
-			<?php if ( 'yes' === get_option( 'airy_wishlist_share_whatsapp', 'yes' ) ) : ?>
-			<a href="https://wa.me/?text=<?php echo rawurlencode( $title . ' ' . $url ); ?>" target="_blank" class="airy-share-whatsapp">
+			<?php if ( 'yes' === get_option( 'airy_wishlist_share_pinterest', 'yes' ) ) : ?>
+				<a href="https://pinterest.com/pin/create/button/?url=<?php echo rawurlencode( $url ); ?>&description=<?php echo rawurlencode( $title ); ?>" target="_blank" rel="noopener noreferrer" class="airy-share-pinterest">
+					Pinterest
+				</a>
+				<?php endif; ?>
+
+				<?php if ( 'yes' === get_option( 'airy_wishlist_share_whatsapp', 'yes' ) ) : ?>
+			<a href="https://wa.me/?text=<?php echo rawurlencode( $title . ' ' . $url ); ?>" target="_blank" rel="noopener noreferrer" class="airy-share-whatsapp">
 				WhatsApp
 			</a>
 			<?php endif; ?>
@@ -367,7 +679,7 @@ class Airy_Wishlist_Shortcodes {
 		);
 
 		$data  = Airy_Wishlist_Data::instance();
-		$count = $data->get_count();
+		$count = $data->is_multiple_enabled() ? $data->get_total_count() : $data->get_count();
 		$url   = $data->get_wishlist_url();
 
 		$icon_html = airy_wishlist_get_icon( $atts['icon'] );
@@ -381,9 +693,7 @@ class Airy_Wishlist_Shortcodes {
                     // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Output is escaped via custom airy_wishlist_kses_svg() function
 					echo airy_wishlist_kses_svg( $icon_html );
 					?>
-					<?php if ( $count > 0 ) : ?>
-					<span class="airy-wishlist-count"><?php echo absint( $count ); ?></span>
-					<?php endif; ?>
+					<span class="airy-wishlist-count"<?php echo $count > 0 ? '' : ' style="display:none;"'; ?>><?php echo absint( $count ); ?></span>
 				</span>
 				<?php if ( 'yes' === $atts['show_text'] ) : ?>
 				<span class="airy-wishlist-text"><?php esc_html_e( 'Wishlist', 'airy-wishlist' ); ?></span>

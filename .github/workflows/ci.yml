@@ -1,0 +1,91 @@
+name: CI
+
+# Runs on every pull request and on pushes to main.
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  phpcs:
+    name: PHPCS (WordPress Coding Standards)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer
+
+      - name: Install PHP_CodeSniffer + WordPress Coding Standards
+        run: |
+          composer global config --no-plugins allow-plugins.dealerdirect/phpcodesniffer-composer-installer true
+          composer global require --no-interaction --no-progress \
+            "squizlabs/php_codesniffer:^3.9" \
+            "wp-coding-standards/wpcs:^3.1" \
+            "phpcsstandards/phpcsextra:^1.2" \
+            "phpcsstandards/phpcsutils:^1.0" \
+            "dealerdirect/phpcodesniffer-composer-installer:^1.0"
+          echo "$(composer global config bin-dir --absolute)" >> "$GITHUB_PATH"
+
+      - name: Run PHPCS (uses phpcs.xml.dist in repo root)
+        run: phpcs -q --report=full
+
+  plugin-check:
+    name: WordPress Plugin Check
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mariadb:10.6
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: wordpress
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+
+    steps:
+      - name: Checkout plugin source
+        uses: actions/checkout@v4
+        with:
+          path: plugin-src
+
+      - name: Setup PHP + WP-CLI
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mysqli, gd, zip, intl, mbstring, curl, dom, exif, fileinfo
+          tools: wp-cli
+
+      - name: Install WordPress + WooCommerce
+        run: |
+          wp core download --path=wp --version=latest --quiet
+          cd wp
+          wp config create --dbname=wordpress --dbuser=root --dbpass=root --dbhost=127.0.0.1 --quiet
+          wp core install --url=http://localhost --title="Plugin Check" \
+            --admin_user=admin --admin_password=admin --admin_email=admin@example.com --skip-email --quiet
+          wp plugin install woocommerce --activate --quiet
+
+      - name: Stage a clean copy of the plugin (excludes dev/build files)
+        run: |
+          rsync -a \
+            --exclude='.git' --exclude='.github' \
+            --exclude='phpcs.xml.dist' --exclude='.distignore' \
+            --exclude='.gitignore' --exclude='.gitattributes' \
+            --exclude='README.md' --exclude='CONTRIBUTING.md' \
+            plugin-src/ wp/wp-content/plugins/airy-wishlist/
+
+      - name: Run Plugin Check
+        run: |
+          cd wp
+          wp plugin install plugin-check --activate --quiet
+          wp plugin check airy-wishlist

@@ -11,6 +11,7 @@
     class AiryWishlist {
         constructor() {
             this.data = window.airyWishlistData || {};
+            this.i18n = this.data.i18n || {};
             this.init();
         }
         init() {
@@ -52,16 +53,36 @@
                     button.classList.remove('added');
                     const textSpan = button.querySelector('.airy-wishlist-text');
                     if (textSpan) {
-                        textSpan.textContent = 'Add to Wishlist';
+                        textSpan.textContent = this.i18n.addText || 'Add to Wishlist';
                     }
                 }
             };
-            
+
+            // Sync the button's "added" state for the currently selected variation.
+            const syncAddedState = (form, productId, variationId) => {
+                const button = form.querySelector('.airy-wishlist-btn');
+                if (!button) {
+                    return;
+                }
+                this.ajax('airy_check_in_wishlist', {
+                    product_id: productId,
+                    variation_id: variationId
+                }, (response) => {
+                    if (response && response.success) {
+                        this.setButtonAdded(button, response.data.in_wishlist);
+                    }
+                });
+            };
+
             const checkVariationStatus = (form) => {
                 const variationInput = form.querySelector('input[name="variation_id"]');
-                
+
                 if (variationInput && variationInput.value && parseInt(variationInput.value) > 0) {
                     enableWishlistButton(form, variationInput.value);
+                    const button = form.querySelector('.airy-wishlist-btn');
+                    if (button) {
+                        syncAddedState(form, button.getAttribute('data-product-id'), variationInput.value);
+                    }
                 } else {
                     disableWishlistButton(form);
                 }
@@ -103,11 +124,6 @@
                     variationInput.addEventListener('change', () => {
                         checkVariationStatus(form);
                     });
-                    
-                    // Periodically check (fallback).
-                    setInterval(() => {
-                        checkVariationStatus(form);
-                    }, 500);
                 }
                 
                 // Listen to all variation select changes.
@@ -120,12 +136,41 @@
         }
         
         bindEvents() {
-            // Add to wishlist.
+            // Add to wishlist (and toggle-off when already added, if enabled).
             document.addEventListener('click', (e) => {
                 const btn = e.target.closest('.airy-wishlist-btn');
-                if (btn && !btn.classList.contains('added')) {
-                    e.preventDefault();
+                if (!btn) {
+                    return;
+                }
+
+                if (btn.classList.contains('added')) {
+                    // Already in the wishlist: click again to remove (toggle).
+                    if (this.data.buttonToggle === 'yes' && this.data.enableAjax === 'yes') {
+                        e.preventDefault();
+                        this.removeViaButton(btn);
+                    }
+                    return;
+                }
+
+                e.preventDefault();
+                if (this.data.multipleEnabled === 'yes' && this.data.enableAjax === 'yes') {
+                    this.showWishlistChooser(btn);
+                } else {
                     this.addToWishlist(btn);
+                }
+            });
+
+            // Multiple wishlists: management controls on the wishlist page.
+            document.addEventListener('click', (e) => {
+                if (e.target.closest('.airy-wishlist-new-btn')) {
+                    e.preventDefault();
+                    this.createWishlistPrompt();
+                } else if (e.target.closest('.airy-wishlist-rename-btn')) {
+                    e.preventDefault();
+                    this.renameWishlistPrompt(e.target.closest('.airy-wishlist-rename-btn'));
+                } else if (e.target.closest('.airy-wishlist-delete-btn')) {
+                    e.preventDefault();
+                    this.deleteWishlistPrompt(e.target.closest('.airy-wishlist-delete-btn'));
                 }
             });
             
@@ -158,69 +203,218 @@
                     this.addAllToCart();
                 }
             });
+
+            // Copy shareable wishlist link.
+            document.addEventListener('click', (e) => {
+                const copyBtn = e.target.closest('.airy-copy-share-link');
+                if (copyBtn) {
+                    e.preventDefault();
+                    this.copyShareLink(copyBtn);
+                }
+            });
+
+            // Toggle stock/price notifications for a wishlist.
+            document.addEventListener('change', (e) => {
+                const toggle = e.target.closest('.airy-notify-toggle');
+                if (toggle) {
+                    this.toggleNotifications(toggle);
+                    return;
+                }
+
+                const moveSelect = e.target.closest('.airy-move-select');
+                if (moveSelect && moveSelect.value) {
+                    this.moveItem(moveSelect);
+                }
+            });
+        }
+
+        moveItem(select) {
+            const productId = select.getAttribute('data-product-id');
+            const variationId = select.getAttribute('data-variation-id') || 0;
+            const fromId = select.getAttribute('data-from-id');
+            const toId = select.value;
+            const row = select.closest('.airy-wishlist-item') || select.closest('.airy-wishlist-grid-item');
+
+            select.disabled = true;
+
+            this.ajax('airy_move_item', {
+                product_id: productId,
+                variation_id: variationId,
+                from_id: fromId,
+                to_id: toId
+            }, (response) => {
+                if (response && response.success) {
+                    this.showMessage(response.data.message, 'success');
+                    this.updateCounter(response.data.count);
+                    if (row) {
+                        row.style.opacity = '0';
+                        setTimeout(() => {
+                            row.remove();
+                            this.checkEmptyWishlist();
+                        }, 300);
+                    }
+                } else {
+                    select.disabled = false;
+                    select.value = '';
+                    this.showMessage((response && response.data && response.data.message) || this.i18n.genericError, 'error');
+                }
+            });
+        }
+
+        toggleNotifications(toggle) {
+            const wishlistId = toggle.getAttribute('data-wishlist-id');
+            const enabled = toggle.checked ? '1' : '0';
+
+            this.ajax('airy_toggle_notifications', {
+                wishlist_id: wishlistId,
+                enabled: enabled
+            }, (response) => {
+                if (response && response.success) {
+                    this.showMessage(response.data.message, 'success');
+                } else {
+                    // Revert the checkbox on failure.
+                    toggle.checked = !toggle.checked;
+                    this.showMessage((response && response.data && response.data.message) || this.i18n.genericError, 'error');
+                }
+            });
+        }
+
+        copyShareLink(btn) {
+            const wrapper = btn.closest('.airy-wishlist-share-link');
+            const input = wrapper ? wrapper.querySelector('.airy-wishlist-share-url') : null;
+            if (!input) {
+                return;
+            }
+
+            const url = input.value;
+            const done = () => {
+                const original = btn.textContent;
+                btn.textContent = btn.getAttribute('data-copied-text') || 'Copied!';
+                setTimeout(() => {
+                    btn.textContent = original;
+                }, 2000);
+            };
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(url).then(done).catch(() => {
+                    input.select();
+                    document.execCommand('copy');
+                    done();
+                });
+            } else {
+                input.select();
+                document.execCommand('copy');
+                done();
+            }
         }
         
-        addToWishlist(btn) {
-            let productId = btn.getAttribute('data-product-id');
+        /**
+         * Resolve the variation ID for a button, or null if a required
+         * variation has not been selected (shows an error in that case).
+         */
+        resolveVariationId(btn) {
             let variationId = btn.getAttribute('data-variation-id') || 0;
-            
-            // Check if this is a variable product.
             const isVariable = btn.getAttribute('data-is-variable') === 'yes';
-            
-            if (isVariable) {
-                // Try to get selected variation from WooCommerce variation form.
-                const product = btn.closest('.product') || document.querySelector('.product');
-                
-                if (product) {
-                    const variationForm = product.querySelector('.variations_form');
-                    
-                    if (variationForm) {
-                        const variationIdInput = variationForm.querySelector('input[name="variation_id"]');
-                        if (variationIdInput && variationIdInput.value && parseInt(variationIdInput.value) > 0) {
-                            variationId = variationIdInput.value;
-                        } else {
-                            // No variation selected - shouldn't happen but show error.
-                            this.showMessage('Please select product options before adding to wishlist.', 'error');
-                            return;
-                        }
-                    }
-                }
-                
-                // If still no variation ID, try from button's data attribute (set when variation selected).
-                if (!variationId || variationId == 0) {
-                    const btnVariationId = btn.getAttribute('data-variation-id');
-                    if (btnVariationId && parseInt(btnVariationId) > 0) {
-                        variationId = btnVariationId;
+
+            if (!isVariable) {
+                return variationId;
+            }
+
+            const product = btn.closest('.product') || document.querySelector('.product');
+            if (product) {
+                const variationForm = product.querySelector('.variations_form');
+                if (variationForm) {
+                    const variationIdInput = variationForm.querySelector('input[name="variation_id"]');
+                    if (variationIdInput && variationIdInput.value && parseInt(variationIdInput.value) > 0) {
+                        variationId = variationIdInput.value;
                     } else {
-                        this.showMessage('Please select product options before adding to wishlist.', 'error');
-                        return;
+                        this.showMessage(this.i18n.selectOptions || 'Please select product options before adding to wishlist.', 'error');
+                        return null;
                     }
                 }
             }
-            
+
+            if (!variationId || variationId == 0) {
+                const btnVariationId = btn.getAttribute('data-variation-id');
+                if (btnVariationId && parseInt(btnVariationId) > 0) {
+                    variationId = btnVariationId;
+                } else {
+                    this.showMessage(this.i18n.selectOptions || 'Please select product options before adding to wishlist.', 'error');
+                    return null;
+                }
+            }
+
+            return variationId;
+        }
+
+        /**
+         * Remove a product from the wishlist via the add/remove toggle button,
+         * reverting it to the "Add to Wishlist" state.
+         */
+        removeViaButton(btn) {
+            const productId = btn.getAttribute('data-product-id');
+            const variationId = btn.getAttribute('data-variation-id') || 0;
+            // Remove from the list it was added to this session, else the default list.
+            const wishlistId = btn.getAttribute('data-added-wishlist-id') || 0;
+
+            btn.classList.add('loading');
+
+            this.ajax('airy_remove_from_wishlist', {
+                product_id: productId,
+                variation_id: variationId,
+                wishlist_id: wishlistId
+            }, (response) => {
+                btn.classList.remove('loading');
+
+                if (response && response.success) {
+                    this.setButtonAdded(btn, false);
+                    btn.removeAttribute('data-added-wishlist-id');
+                    btn.removeAttribute('data-added-variation-id');
+                    this.updateCounter(response.data.count);
+                    this.showMessage(response.data.message, 'success');
+                } else {
+                    this.showMessage((response && response.data && response.data.message) || this.i18n.genericError, 'error');
+                }
+            });
+        }
+
+        addToWishlist(btn, targetWishlistId) {
+            const productId = btn.getAttribute('data-product-id');
+            const variationId = this.resolveVariationId(btn);
+
+            if (variationId === null) {
+                return;
+            }
+
             // If AJAX is disabled, use form submission.
             if (this.data.enableAjax !== 'yes') {
                 this.addToWishlistNoAjax(productId, variationId);
                 return;
             }
-            
+
             btn.classList.add('loading');
-            
-            this.ajax('airy_add_to_wishlist', {
+
+            const payload = {
                 product_id: productId,
                 variation_id: variationId
-            }, (response) => {
+            };
+            if (targetWishlistId) {
+                payload.wishlist_id = targetWishlistId;
+            }
+
+            this.ajax('airy_add_to_wishlist', payload, (response) => {
                 btn.classList.remove('loading');
                 
                 if (response.success) {
                     btn.classList.add('added');
                     const textSpan = btn.querySelector('.airy-wishlist-text');
                     if (textSpan) {
-                        textSpan.textContent = this.data.addedMessage || 'Added to Wishlist';
+                        textSpan.textContent = this.i18n.addedText || 'Added to Wishlist';
                     }
-                    
-                    // Store the variation ID that was added.
+
+                    // Store the variation ID and the list it was added to (for toggle-off).
                     btn.setAttribute('data-added-variation-id', variationId);
+                    btn.setAttribute('data-added-wishlist-id', targetWishlistId || 0);
                     
                     this.updateCounter(response.data.count);
                     this.showMessage(response.data.message, 'success');
@@ -266,17 +460,200 @@
             document.body.appendChild(form);
             form.submit();
         }
-        
+
+        /**
+         * Show a small popover under the button to choose which list to add to.
+         */
+        showWishlistChooser(btn) {
+            // Validate variation selection up front so we don't open the chooser and then fail.
+            if (this.resolveVariationId(btn) === null) {
+                return;
+            }
+
+            this.closeWishlistChooser();
+
+            const panel = document.createElement('div');
+            panel.className = 'airy-wishlist-chooser';
+            panel.innerHTML = '<div class="airy-wishlist-chooser-title">' + (this.i18n.chooseList || 'Add to which list?') + '</div><div class="airy-wishlist-chooser-lists">…</div>';
+
+            document.body.appendChild(panel);
+            this.positionChooser(panel, btn);
+            this._activeChooser = panel;
+
+            // Close on outside click / escape.
+            this._chooserOutside = (ev) => {
+                if (!panel.contains(ev.target) && ev.target !== btn && !btn.contains(ev.target)) {
+                    this.closeWishlistChooser();
+                }
+            };
+            this._chooserEsc = (ev) => {
+                if (ev.key === 'Escape') {
+                    this.closeWishlistChooser();
+                }
+            };
+            setTimeout(() => {
+                document.addEventListener('click', this._chooserOutside);
+                document.addEventListener('keydown', this._chooserEsc);
+            }, 0);
+
+            // Load the lists.
+            this.ajax('airy_get_wishlists', {}, (response) => {
+                if (!this._activeChooser) {
+                    return;
+                }
+                const listsWrap = panel.querySelector('.airy-wishlist-chooser-lists');
+                listsWrap.innerHTML = '';
+
+                if (response && response.success && response.data.wishlists.length) {
+                    response.data.wishlists.forEach((list) => {
+                        const item = document.createElement('button');
+                        item.type = 'button';
+                        item.className = 'airy-wishlist-chooser-item';
+                        item.textContent = list.name + ' (' + list.count + ')';
+                        item.addEventListener('click', () => {
+                            this.closeWishlistChooser();
+                            this.addToWishlist(btn, list.id);
+                        });
+                        listsWrap.appendChild(item);
+                    });
+                }
+
+                // "Create new list" row.
+                const createRow = document.createElement('div');
+                createRow.className = 'airy-wishlist-chooser-create';
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.placeholder = this.i18n.newListName || 'New list name';
+                const createBtn = document.createElement('button');
+                createBtn.type = 'button';
+                createBtn.className = 'airy-wishlist-chooser-create-btn';
+                createBtn.textContent = this.i18n.create || 'Create';
+                createBtn.addEventListener('click', () => {
+                    const name = input.value.trim();
+                    if (!name) {
+                        input.focus();
+                        return;
+                    }
+                    this.ajax('airy_create_wishlist', { name: name }, (res) => {
+                        if (res && res.success) {
+                            this.closeWishlistChooser();
+                            this.addToWishlist(btn, res.data.id);
+                        } else {
+                            this.showMessage((res && res.data && res.data.message) || this.i18n.genericError, 'error');
+                        }
+                    });
+                });
+                input.addEventListener('keydown', (ev) => {
+                    if (ev.key === 'Enter') {
+                        ev.preventDefault();
+                        createBtn.click();
+                    }
+                });
+                createRow.appendChild(input);
+                createRow.appendChild(createBtn);
+                listsWrap.appendChild(createRow);
+            });
+        }
+
+        positionChooser(panel, btn) {
+            const rect = btn.getBoundingClientRect();
+            panel.style.position = 'absolute';
+            panel.style.top = (window.scrollY + rect.bottom + 6) + 'px';
+            panel.style.left = (window.scrollX + rect.left) + 'px';
+            panel.style.zIndex = '99998';
+        }
+
+        closeWishlistChooser() {
+            if (this._activeChooser) {
+                this._activeChooser.remove();
+                this._activeChooser = null;
+            }
+            if (this._chooserOutside) {
+                document.removeEventListener('click', this._chooserOutside);
+                this._chooserOutside = null;
+            }
+            if (this._chooserEsc) {
+                document.removeEventListener('keydown', this._chooserEsc);
+                this._chooserEsc = null;
+            }
+        }
+
+        createWishlistPrompt() {
+            const name = window.prompt(this.i18n.newListPrompt || 'Name your new list:');
+            if (name === null) {
+                return;
+            }
+            const trimmed = name.trim();
+            if (!trimmed) {
+                return;
+            }
+            this.ajax('airy_create_wishlist', { name: trimmed }, (res) => {
+                if (res && res.success) {
+                    window.location.href = this.buildListUrl(res.data.id);
+                } else {
+                    this.showMessage((res && res.data && res.data.message) || this.i18n.genericError, 'error');
+                }
+            });
+        }
+
+        renameWishlistPrompt(btn) {
+            const wishlistId = btn.getAttribute('data-wishlist-id');
+            const current = btn.getAttribute('data-current-name') || '';
+            const name = window.prompt(this.i18n.renamePrompt || 'Enter a new name for this list:', current);
+            if (name === null) {
+                return;
+            }
+            const trimmed = name.trim();
+            if (!trimmed) {
+                return;
+            }
+            this.ajax('airy_rename_wishlist', { wishlist_id: wishlistId, name: trimmed }, (res) => {
+                if (res && res.success) {
+                    window.location.reload();
+                } else {
+                    this.showMessage((res && res.data && res.data.message) || this.i18n.genericError, 'error');
+                }
+            });
+        }
+
+        deleteWishlistPrompt(btn) {
+            const wishlistId = btn.getAttribute('data-wishlist-id');
+            if (!window.confirm(this.i18n.deleteConfirm || 'Delete this list and all its items?')) {
+                return;
+            }
+            this.ajax('airy_delete_wishlist', { wishlist_id: wishlistId }, (res) => {
+                if (res && res.success) {
+                    window.location.href = this.buildListUrl(0);
+                } else {
+                    this.showMessage((res && res.data && res.data.message) || this.i18n.genericError, 'error');
+                }
+            });
+        }
+
+        /**
+         * Build a wishlist page URL for a given list (0 = default view).
+         */
+        buildListUrl(listId) {
+            const base = this.data.wishlistUrl || window.location.href.split('?')[0];
+            if (!listId) {
+                return base;
+            }
+            const sep = base.indexOf('?') === -1 ? '?' : '&';
+            return base + sep + 'airy_list=' + encodeURIComponent(listId);
+        }
+
         removeFromWishlist(btn) {
             const productId = btn.getAttribute('data-product-id');
             const variationId = btn.getAttribute('data-variation-id') || 0;
+            const wishlistId = btn.getAttribute('data-wishlist-id') || 0;
             const row = btn.closest('.airy-wishlist-item') || btn.closest('.airy-wishlist-grid-item');
-            
+
             btn.classList.add('loading');
-            
+
             this.ajax('airy_remove_from_wishlist', {
                 product_id: productId,
-                variation_id: variationId
+                variation_id: variationId,
+                wishlist_id: wishlistId
             }, (response) => {
                 btn.classList.remove('loading');
                 
@@ -301,13 +678,15 @@
         addToCartFromWishlist(btn) {
             const productId = btn.getAttribute('data-product-id');
             const variationId = btn.getAttribute('data-variation-id') || 0;
-            
+            const wishlistId = btn.getAttribute('data-wishlist-id') || 0;
+
             btn.classList.add('loading');
             btn.disabled = true;
-            
+
             this.ajax('airy_add_to_cart_from_wishlist', {
                 product_id: productId,
                 variation_id: variationId,
+                wishlist_id: wishlistId,
                 quantity: 1
             }, (response) => {
                 btn.classList.remove('loading');
@@ -315,19 +694,25 @@
                 
                 if (response.success) {
                     this.showMessage(response.data.message, 'success');
-                    
-                    // Remove from wishlist if option enabled.
-                    const row = btn.closest('.airy-wishlist-item') || btn.closest('.airy-wishlist-grid-item');
-                    if (row) {
-                        setTimeout(() => {
-                            row.style.opacity = '0';
+
+                    // Only hide the row if the server actually removed it from the
+                    // wishlist (the "remove after add to cart" option is enabled).
+                    if (response.data.removed) {
+                        const row = btn.closest('.airy-wishlist-item') || btn.closest('.airy-wishlist-grid-item');
+                        if (row) {
                             setTimeout(() => {
-                                row.remove();
-                                this.checkEmptyWishlist();
-                            }, 300);
-                        }, 500);
+                                row.style.opacity = '0';
+                                setTimeout(() => {
+                                    row.remove();
+                                    this.checkEmptyWishlist();
+                                }, 300);
+                            }, 500);
+                        }
+                        if (typeof response.data.count !== 'undefined') {
+                            this.updateCounter(response.data.count);
+                        }
                     }
-                    
+
                     // Trigger WooCommerce added_to_cart event.
                     document.body.dispatchEvent(new Event('wc_fragment_refresh'));
                 } else {
@@ -344,24 +729,39 @@
             }
             
             let completed = 0;
+            let succeeded = 0;
             const total = addToCartButtons.length;
-            
+
             addToCartButtons.forEach((btn) => {
                 const productId = btn.getAttribute('data-product-id');
                 const variationId = btn.getAttribute('data-variation-id') || 0;
-                
+                const wishlistId = btn.getAttribute('data-wishlist-id') || 0;
+
                 this.ajax('airy_add_to_cart_from_wishlist', {
                     product_id: productId,
                     variation_id: variationId,
+                    wishlist_id: wishlistId,
                     quantity: 1
                 }, (response) => {
                     completed++;
-                    
+                    if (response && response.success) {
+                        succeeded++;
+                    }
+
                     if (completed === total) {
-                        this.showMessage('All products added to cart!', 'success');
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 1000);
+                        if (succeeded === total) {
+                            this.showMessage(this.i18n.allAddedToCart || 'All products added to cart!', 'success');
+                        } else if (succeeded > 0) {
+                            this.showMessage(this.i18n.someFailed || 'Some products could not be added to cart.', 'error');
+                        } else {
+                            this.showMessage(this.i18n.genericError || 'An error occurred. Please try again.', 'error');
+                        }
+
+                        if (succeeded > 0) {
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1000);
+                        }
                     }
                 });
             });
@@ -392,26 +792,30 @@
             });
         }
         
+        setButtonAdded(btn, inWishlist) {
+            const textSpan = btn.querySelector('.airy-wishlist-text');
+
+            if (inWishlist) {
+                btn.classList.add('added');
+                if (textSpan) {
+                    textSpan.textContent = this.i18n.addedText || 'Added to Wishlist';
+                }
+            } else {
+                btn.classList.remove('added');
+                if (textSpan) {
+                    textSpan.textContent = this.i18n.addText || 'Add to Wishlist';
+                }
+            }
+        }
+
         updateButtons(productId, variationId, inWishlist) {
             const buttons = document.querySelectorAll(`.airy-wishlist-btn[data-product-id="${productId}"]`);
-            
+
             buttons.forEach((btn) => {
                 const btnVariationId = btn.getAttribute('data-variation-id') || 0;
-                
+
                 if (btnVariationId == variationId) {
-                    const textSpan = btn.querySelector('.airy-wishlist-text');
-                    
-                    if (inWishlist) {
-                        btn.classList.add('added');
-                        if (textSpan) {
-                            textSpan.textContent = this.data.addedMessage || 'Added to Wishlist';
-                        }
-                    } else {
-                        btn.classList.remove('added');
-                        if (textSpan) {
-                            textSpan.textContent = 'Add to Wishlist';
-                        }
-                    }
+                    this.setButtonAdded(btn, inWishlist);
                 }
             });
         }
@@ -474,7 +878,7 @@
             .then(callback)
             .catch(error => {
                 console.error('Wishlist AJAX Error:', error);
-                this.showMessage('An error occurred. Please try again.', 'error');
+                this.showMessage(this.i18n.genericError || 'An error occurred. Please try again.', 'error');
             });
         }
     }

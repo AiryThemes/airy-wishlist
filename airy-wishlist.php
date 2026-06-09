@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Airy Wishlist for WooCommerce
  * Description: A powerful and user-friendly wishlist plugin for WooCommerce. Add products to wishlist, share with friends, and more!
- * Version: 1.0.1
+ * Version: 2.0.0
  * Author: NXlogy
  * Author URI: https://nxlogy.com
  * Text Domain: airy-wishlist
@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Plugin constants.
-define( 'AIRY_WISHLIST_VERSION', '1.0.1' );
+define( 'AIRY_WISHLIST_VERSION', '2.0.0' );
 define( 'AIRY_WISHLIST_FILE', __FILE__ );
 define( 'AIRY_WISHLIST_PATH', plugin_dir_path( __FILE__ ) );
 define( 'AIRY_WISHLIST_URL', plugin_dir_url( __FILE__ ) );
@@ -96,6 +96,11 @@ final class Airy_Wishlist {
 		require_once AIRY_WISHLIST_PATH . 'includes/class-airy-wishlist-ajax.php';
 		require_once AIRY_WISHLIST_PATH . 'includes/class-airy-wishlist-shortcodes.php';
 		require_once AIRY_WISHLIST_PATH . 'includes/class-airy-wishlist-widgets.php';
+		require_once AIRY_WISHLIST_PATH . 'includes/class-airy-wishlist-counter-widget.php';
+		require_once AIRY_WISHLIST_PATH . 'includes/class-airy-wishlist-analytics.php';
+		require_once AIRY_WISHLIST_PATH . 'includes/class-airy-wishlist-notifications.php';
+		require_once AIRY_WISHLIST_PATH . 'includes/class-airy-wishlist-marketing.php';
+		require_once AIRY_WISHLIST_PATH . 'includes/class-airy-wishlist-my-account.php';
 
 		// Admin files.
 		if ( is_admin() ) {
@@ -116,6 +121,11 @@ final class Airy_Wishlist {
 			return;
 		}
 
+		// Run any pending database upgrades (no-op once up to date).
+		if ( is_admin() ) {
+			Airy_Wishlist_Install::maybe_upgrade();
+		}
+
 		// Initialize classes.
 		Airy_Wishlist_Database::instance();
 		Airy_Wishlist_Data::instance();
@@ -123,6 +133,10 @@ final class Airy_Wishlist {
 		Airy_Wishlist_Ajax::instance();
 		Airy_Wishlist_Shortcodes::instance();
 		Airy_Wishlist_Widgets::instance();
+		Airy_Wishlist_Analytics::instance();
+		Airy_Wishlist_Notifications::instance();
+		Airy_Wishlist_Marketing::instance();
+		Airy_Wishlist_My_Account::instance();
 
 		if ( is_admin() ) {
 			Airy_Wishlist_Admin::instance();
