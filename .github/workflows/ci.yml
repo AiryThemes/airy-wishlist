@@ -41,26 +41,51 @@ jobs:
   plugin-check:
     name: WordPress Plugin Check
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    services:
+      mysql:
+        image: mariadb:10.6
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: wordpress
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s --health-timeout=5s --health-retries=10
 
-      - name: Build a clean plugin directory (excludes dev/build files, like the shipped ZIP)
+    steps:
+      - name: Checkout plugin source
+        uses: actions/checkout@v4
+        with:
+          path: plugin-src
+
+      - name: Setup PHP + WP-CLI
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mysqli, gd, zip, intl, mbstring, curl, dom, exif, fileinfo
+          tools: wp-cli
+
+      - name: Install WordPress + WooCommerce
         run: |
-          mkdir -p build/airy-wishlist
+          wp core download --path=wp --version=latest --quiet
+          cd wp
+          wp config create --dbname=wordpress --dbuser=root --dbpass=root --dbhost=127.0.0.1 --quiet
+          wp core install --url=http://localhost --title="Plugin Check" \
+            --admin_user=admin --admin_password=admin --admin_email=admin@example.com --skip-email --quiet
+          wp plugin install woocommerce --activate --quiet
+
+      - name: Stage a clean copy of the plugin (excludes dev/build files)
+        run: |
           rsync -a \
-            --exclude='.git' \
-            --exclude='.github' \
-            --exclude='build' \
-            --exclude='.distignore' \
-            --exclude='.gitignore' \
-            --exclude='.gitattributes' \
-            --exclude='phpcs.xml.dist' \
-            --exclude='README.md' \
-            --exclude='CONTRIBUTING.md' \
-            ./ build/airy-wishlist/
+            --exclude='.git' --exclude='.github' \
+            --exclude='phpcs.xml.dist' --exclude='.distignore' \
+            --exclude='.gitignore' --exclude='.gitattributes' \
+            --exclude='README.md' --exclude='CONTRIBUTING.md' \
+            plugin-src/ wp/wp-content/plugins/airy-wishlist/
 
       - name: Run Plugin Check
-        uses: wordpress/plugin-check-action@v1
-        with:
-          build-dir: './build/airy-wishlist'
+        run: |
+          cd wp
+          wp plugin install plugin-check --activate --quiet
+          wp plugin check airy-wishlist
